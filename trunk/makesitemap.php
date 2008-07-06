@@ -5,12 +5,12 @@
  * полностью вместе с последним
  * слэшем
  *********************************/
-define('BASE_URL', 'http://' . $_SERVER['SERVER_NAME'] . '/');
+define('BASE_URL', 'http://www.yoursite.com/');
 
 /*********************************
  * Куда записывать файлы sitemap
  *********************************/
-define('SITEMAP_DIR2SAVE', $_SERVER['DOCUMENT_ROOT'] . DIRECTORY_SEPARATOR . 'product_files');
+define('SITEMAP_DIR2SAVE', '/path/to/files/on/the/server');
 
 /*********************************
  * URL файлов с sitemap
@@ -18,7 +18,7 @@ define('SITEMAP_DIR2SAVE', $_SERVER['DOCUMENT_ROOT'] . DIRECTORY_SEPARATOR . 'pr
  * полностью вместе с последним
  * слэшем
  *********************************/
-define('SITEMAP_URL2SAVE', 'http://' . $_SERVER['SERVER_NAME'] . '/');
+define('SITEMAP_URL2SAVE', 'http://www.yoursite.com/');
 
 /*********************************
  * Количество URL-ов на один файл sitemap
@@ -31,13 +31,13 @@ define('ITEMS_PER_FILE', 45000);
  * Индексный файл sitemap в который
  * будут добавлены наши файлы
  *********************************/
-define('SITEMAP_INDEX_SOURCE', $_SERVER['DOCUMENT_ROOT'] . DIRECTORY_SEPARATOR . 'sitemap_index_src.xml');
+define('SITEMAP_INDEX_SOURCE', SITEMAP_DIR2SAVE . DIRECTORY_SEPARATOR . 'sitemap_index_src.xml');
 
 /*********************************
  * Индексный файл sitemap 
  * с добавленными файлами
  *********************************/
-define('SITEMAP_INDEX_FILE', $_SERVER['DOCUMENT_ROOT'] . DIRECTORY_SEPARATOR . 'sitemap_index.xml');
+define('SITEMAP_INDEX_FILE', SITEMAP_DIR2SAVE . DIRECTORY_SEPARATOR . 'sitemap_index.xml');
 
 /*********************************
  * Приоритет страниц AUX
@@ -101,12 +101,9 @@ XML;
 
 $sitemap_index_src = file_get_contents(SITEMAP_INDEX_SOURCE);
 
-include("./cfg/connect.inc.php");
-include("./includes/database/mysql.php");
-
-if (!isset($_GET['a'])) $action = 'interactive';
-elseif ($_GET['a'] !== 'go') $action = 'interactive';
-else $action = 'go';
+include("cfg/connect.inc.php");
+include("cfg/tables.inc.php");
+include("includes/database/mysql.php");
 
 db_connect(DB_HOST,DB_USER,DB_PASS) or die (db_error());
 db_select_db(DB_NAME) or die (db_error());
@@ -118,11 +115,11 @@ $sitemap_index = new SimpleXMLElement($sitemap_index_src);
  **********************************/
 $q = db_query('SELECT COUNT(*) AS cnt FROM ' . AUX_PAGES_TABLE);
 $res = db_fetch_row($q);
-$item_count = $g['cnt'];
+$item_count = $res['cnt'];
 
 for ($i = 0; $i <= $item_count/ITEMS_PER_FILE; $i++) {
 	$sitemap = new SimpleXMLElement($sitemap_string);
-	$q = db_query('SELECT aux_page_ID AS id FROM '. AUX_PAGES_TABLE . ' LIMIT ' . $i*$ITEMS_PER_FILE . ', ' . ITEMS_PER_FILE);
+	$q = db_query('SELECT aux_page_ID AS id FROM '. AUX_PAGES_TABLE . ' LIMIT ' . $i*ITEMS_PER_FILE . ', ' . ITEMS_PER_FILE);
 	while ($row = db_fetch_row($q)) {
 		$url = $sitemap->addChild('url');
 		$url->addChild('loc', BASE_URL . "index.php?show_aux_page={$row['id']}");
@@ -141,17 +138,17 @@ for ($i = 0; $i <= $item_count/ITEMS_PER_FILE; $i++) {
 /**********************************
  * Process Products
  **********************************/	
-$q = db_query('SELECT COUNT(*) AS cnt FROM '. ITEMS_PER_FILE . ' WHERE categoryID > 1');
+$q = db_query('SELECT COUNT(*) AS cnt FROM '. PRODUCTS_TABLE . ' WHERE categoryID > 1');
 $res = db_fetch_row($q);
 $item_count = $res['cnt'];
 
 // Если надо генерировать url с обсуждениями, то количество
 // поделить на 2 -- на каждый продукт по 2 url получается
 $items_per_file = ITEMS_PER_FILE / (MAKE_DISCUSS_PAGES ? 2 : 1);
-	
+
 for ($i = 0; $i <= $item_count/$items_per_file; $i++) {
 	$sitemap = new SimpleXMLElement($sitemap_string);
-	$q = db_query('SELECT productID AS id, date_modified as dm FROM '. PRODUCTS_TABLE . " WHERE categoryID > 1 LIMIT " . $i*$item_count . ", $item_count" );
+	$q = db_query('SELECT productID AS id, date_modified as dm FROM '. PRODUCTS_TABLE . " WHERE categoryID > 1 LIMIT " . $i*$items_per_file . ", $items_per_file" );
 	while ($row = db_fetch_row($q)) {
 			$url = $sitemap->addChild('url');
 			$url->addChild('loc', BASE_URL . "index.php?productID={$row['id']}");
@@ -185,7 +182,7 @@ $item_count = $row['cnt'];
 	
 for ($i = 0; $i <= $item_count/ITEMS_PER_FILE; $i++) {
 
-	$q = db_query('SELECT categoryID AS id FROM '. CATEGORIES_TABLE . " WHERE categoryID > 1 LIMIT " . $i*ITEMS_PER_FILE . ', ' ITEMS_PER_FILE );
+	$q = db_query('SELECT categoryID AS id FROM '. CATEGORIES_TABLE . " WHERE categoryID > 1 LIMIT " . $i*ITEMS_PER_FILE . ', ' . ITEMS_PER_FILE );
 		
 	$sitemap = new SimpleXMLElement($sitemap_string);
 		
@@ -208,7 +205,7 @@ file_put_contents(SITEMAP_INDEX_FILE, $sitemap_index->asXML());
 
 function write_GZip ($filename, $content) {
 
-	if (!($gf = gzopen($filename, 'wb9'))) die ('Error open GZip');
+	if (!($gf = gzopen($filename, 'wb9'))) die ("Error open GZip: $filename");
 	gzwrite($gf, $content);
 	gzclose($gf);
 
