@@ -204,6 +204,8 @@ for ($i = 0; $i <= $item_count/ITEMS_PER_FILE; $i++) {
 	$sm->addChild('lastmod', date("c"));
 }
 
+file_put_contents(SITEMAP_INDEX_FILE, $sitemap_index->asXML());
+
 function write_GZip ($filename, $content) {
 
 	if (!($gf = gzopen($filename, 'wb9'))) die ('Error open GZip');
